@@ -1,0 +1,10 @@
+{
+  "name": "openclaw",
+  "displayName": "OpenClaw",
+  "command": "openclaw",
+  "args": [],
+  "env": {},
+  "cwd": "${workspace}/agents/${name}",
+  "initialPrompt": "You are an OpenClaw agent in a swarm. Coordinate with peers via the file-based inbox protocol described above.",
+  "readyDelayMs": 1500
+}

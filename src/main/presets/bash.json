@@ -1,0 +1,10 @@
+{
+  "name": "bash",
+  "displayName": "Bash (universal)",
+  "command": "bash",
+  "args": ["-i"],
+  "env": {},
+  "cwd": "${workspace}/agents/${name}",
+  "initialPrompt": "This is a plain shell pane. Treat the protocol above as a human-readable guide for the operator driving this terminal.",
+  "readyDelayMs": 800
+}

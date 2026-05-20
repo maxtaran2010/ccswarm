@@ -1,0 +1,10 @@
+{
+  "name": "claude-code",
+  "displayName": "Claude Code",
+  "command": "claude",
+  "args": [],
+  "env": {},
+  "cwd": "${workspace}/agents/${name}",
+  "initialPrompt": "You are a Claude Code agent in a swarm. Read your inbox before each step and use the protocol above to coordinate with peers.",
+  "readyDelayMs": 2000
+}

@@ -1,0 +1,10 @@
+{
+  "name": "codex",
+  "displayName": "OpenAI Codex CLI",
+  "command": "codex",
+  "args": [],
+  "env": {},
+  "cwd": "${workspace}/agents/${name}",
+  "initialPrompt": "You are a Codex CLI agent in a swarm. Use your inbox to receive work and produce updates in your outbox.",
+  "readyDelayMs": 2000
+}

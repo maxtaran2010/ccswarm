@@ -1,0 +1,10 @@
+{
+  "name": "hermes",
+  "displayName": "Hermes",
+  "command": "hermes",
+  "args": [],
+  "env": {},
+  "cwd": "${workspace}/agents/${name}",
+  "initialPrompt": "You are a Hermes agent in a swarm. Coordinate with peers via the file-based inbox protocol described above.",
+  "readyDelayMs": 1500
+}
