@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react'
-import { api, AgentProfile, RunSummary } from '../api'
+import { api, ClientTemplate, RunSummary, Settings } from '../api'
 
 export function Dashboard(): JSX.Element {
-  const [profiles, setProfiles] = useState<AgentProfile[]>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [template, setTemplate] = useState<ClientTemplate | null>(null)
   const [run, setRun] = useState<RunSummary | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function refresh(): Promise<void> {
-    setProfiles(await api().profiles.list())
+    const s = await api().settings.load()
+    setSettings(s)
+    const t = await api().profiles.get(s.swarm.clientTemplate)
+    setTemplate(t)
     setRun(await api().swarm.status())
   }
 
@@ -17,19 +20,11 @@ export function Dashboard(): JSX.Element {
     refresh().catch((e) => setError(String(e)))
   }, [])
 
-  function toggle(name: string): void {
-    const next = new Set(selected)
-    if (next.has(name)) next.delete(name)
-    else next.add(name)
-    setSelected(next)
-  }
-
   async function launch(): Promise<void> {
-    if (selected.size === 0) return
     setBusy(true)
     setError(null)
     try {
-      const summary = await api().swarm.launch([...selected])
+      const summary = await api().swarm.launch()
       setRun(summary)
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e))
@@ -51,6 +46,11 @@ export function Dashboard(): JSX.Element {
     }
   }
 
+  if (!settings) return <div className="muted">Loading…</div>
+
+  const swarm = settings.swarm
+  const templateMissing = !template
+
   return (
     <div>
       <div className="row">
@@ -61,51 +61,51 @@ export function Dashboard(): JSX.Element {
         </span>
       </div>
 
-      {error && <div className="card" style={{ borderColor: '#6a3030', marginBottom: 12 }}>
-        <div className="error">{error}</div>
-      </div>}
+      {error && (
+        <div className="card" style={{ borderColor: '#6a3030', marginBottom: 12 }}>
+          <div className="error">{error}</div>
+        </div>
+      )}
 
-      <div className="card">
-        <div className="label">Select agents to launch</div>
-        {profiles.length === 0 && (
-          <div className="muted">
-            No agent profiles yet — open the Agents tab to create one.
+      <div className="card col">
+        <div className="row gap">
+          <div>
+            <div className="label">Client</div>
+            <div style={{ fontSize: 16 }}>
+              {template ? template.displayName : <span className="error">{swarm.clientTemplate} (not found)</span>}
+            </div>
+            {template && <div className="muted">command: <span className="tag">{template.command}</span></div>}
           </div>
-        )}
-        <div className="list">
-          {profiles.map((p) => (
-            <label
-              key={p.name}
-              className={`list-row ${selected.has(p.name) ? 'selected' : ''}`}
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(p.name)}
-                onChange={() => toggle(p.name)}
-                disabled={!!run}
-              />
-              <span>{p.displayName}</span>
-              <span className="tag">{p.name}</span>
-              <span className="spacer" />
-              <span className="tag">{p.command}</span>
-            </label>
-          ))}
+          <span className="spacer" />
+          <div>
+            <div className="label">Instances</div>
+            <div style={{ fontSize: 16 }}>{swarm.instanceCount}</div>
+          </div>
+          <div>
+            <div className="label">Name prefix</div>
+            <div style={{ fontSize: 16 }}>
+              <span className="tag">{swarm.namePrefix}-1</span> … <span className="tag">{swarm.namePrefix}-{swarm.instanceCount}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="row" style={{ marginTop: 16 }}>
+        <div className="row" style={{ marginTop: 8 }}>
           {!run ? (
             <button
               className="primary"
               onClick={launch}
-              disabled={busy || selected.size === 0}
+              disabled={busy || templateMissing}
             >
-              {busy ? 'Launching…' : `Launch swarm (${selected.size})`}
+              {busy ? 'Launching…' : `Launch swarm (${swarm.instanceCount})`}
             </button>
           ) : (
             <button className="danger" onClick={stop} disabled={busy}>
               {busy ? 'Stopping…' : 'Stop swarm'}
             </button>
           )}
+          <span className="muted" style={{ fontSize: 12 }}>
+            Change client / count / roles in <strong>Settings → Swarm</strong>.
+          </span>
         </div>
       </div>
 
@@ -124,8 +124,14 @@ export function Dashboard(): JSX.Element {
             <span className="muted">{new Date(run.startedAt).toLocaleString()}</span>
           </div>
           <div className="row" style={{ marginTop: 8 }}>
-            <span>iTerm2 window:</span>
-            <span className="tag">{run.windowId}</span>
+            <span>iTerm2 window{run.windowIds.length > 1 ? 's' : ''}:</span>
+            {run.windowIds.length === 0 ? (
+              <span className="muted">none</span>
+            ) : (
+              run.windowIds.map((w) => (
+                <span key={w} className="tag" style={{ marginRight: 4 }}>{w}</span>
+              ))
+            )}
           </div>
           <div className="label" style={{ marginTop: 12 }}>Agents</div>
           <div className="list">

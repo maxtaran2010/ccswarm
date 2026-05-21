@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { api, AgentProfile } from '../api'
+import { api, ClientTemplate } from '../api'
 
-const BLANK: AgentProfile = {
-  name: 'new-agent',
-  displayName: 'New Agent',
+const BLANK: ClientTemplate = {
+  name: 'new-client',
+  displayName: 'New Client',
   command: 'bash',
   args: ['-i'],
   env: {},
@@ -13,7 +13,7 @@ const BLANK: AgentProfile = {
 }
 
 export function Agents(): JSX.Element {
-  const [profiles, setProfiles] = useState<AgentProfile[]>([])
+  const [templates, setTemplates] = useState<ClientTemplate[]>([])
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [draft, setDraft] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
@@ -21,9 +21,9 @@ export function Agents(): JSX.Element {
 
   async function refresh(keepName?: string): Promise<void> {
     const list = await api().profiles.list()
-    setProfiles(list)
+    setTemplates(list)
     const name = keepName ?? selectedName ?? list[0]?.name ?? null
-    if (name) selectProfile(name, list)
+    if (name) selectTemplate(name, list)
     else {
       setSelectedName(null)
       setDraft('')
@@ -35,7 +35,7 @@ export function Agents(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function selectProfile(name: string, list: AgentProfile[] = profiles): void {
+  function selectTemplate(name: string, list: ClientTemplate[] = templates): void {
     const found = list.find((p) => p.name === name) || null
     setSelectedName(found ? found.name : null)
     setDraft(found ? JSON.stringify(found, null, 2) : '')
@@ -45,7 +45,7 @@ export function Agents(): JSX.Element {
 
   async function save(): Promise<void> {
     setError(null)
-    let parsed: AgentProfile
+    let parsed: ClientTemplate
     try {
       parsed = JSON.parse(draft)
     } catch (e) {
@@ -62,12 +62,12 @@ export function Agents(): JSX.Element {
 
   async function remove(): Promise<void> {
     if (!selectedName) return
-    if (!confirm(`Delete profile '${selectedName}'?`)) return
+    if (!confirm(`Delete template '${selectedName}'?`)) return
     await api().profiles.delete(selectedName)
     await refresh(undefined)
   }
 
-  function newProfile(): void {
+  function newTemplate(): void {
     setSelectedName(null)
     setDraft(JSON.stringify(BLANK, null, 2))
     setDirty(true)
@@ -77,7 +77,7 @@ export function Agents(): JSX.Element {
   function duplicate(): void {
     if (!selectedName) return
     try {
-      const obj = JSON.parse(draft) as AgentProfile
+      const obj = JSON.parse(draft) as ClientTemplate
       obj.name = `${obj.name}-copy`
       obj.displayName = `${obj.displayName} (copy)`
       setSelectedName(null)
@@ -91,21 +91,26 @@ export function Agents(): JSX.Element {
   return (
     <div>
       <div className="row">
-        <h2>Agents</h2>
+        <h2>Client Templates</h2>
         <span className="spacer" />
-        <button onClick={newProfile}>New</button>
+        <button onClick={newTemplate}>New</button>
         <button onClick={duplicate} disabled={!selectedName}>Duplicate</button>
+      </div>
+
+      <div className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
+        Each template defines how to launch one instance of an agent CLI.
+        Pick which template the swarm uses in <strong>Settings → Swarm</strong>.
       </div>
 
       <div className="row gap" style={{ alignItems: 'flex-start' }}>
         <div className="col" style={{ width: 260 }}>
-          <div className="label">Profiles</div>
+          <div className="label">Templates</div>
           <div className="list">
-            {profiles.map((p) => (
+            {templates.map((p) => (
               <div
                 key={p.name}
                 className={`list-row ${selectedName === p.name ? 'selected' : ''}`}
-                onClick={() => selectProfile(p.name)}
+                onClick={() => selectTemplate(p.name)}
                 style={{ cursor: 'pointer' }}
               >
                 <div>
@@ -119,7 +124,7 @@ export function Agents(): JSX.Element {
         </div>
 
         <div className="col" style={{ flex: 1 }}>
-          <div className="label">Profile JSON</div>
+          <div className="label">Template JSON</div>
           <textarea
             rows={24}
             value={draft}

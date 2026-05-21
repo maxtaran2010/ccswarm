@@ -12,7 +12,7 @@ const api = {
     save: (settings: unknown) => ipcRenderer.invoke('settings:save', settings)
   },
   swarm: {
-    launch: (profileNames: string[]) => ipcRenderer.invoke('swarm:launch', profileNames),
+    launch: () => ipcRenderer.invoke('swarm:launch'),
     stop: () => ipcRenderer.invoke('swarm:stop'),
     status: () => ipcRenderer.invoke('swarm:status')
   },

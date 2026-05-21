@@ -6,7 +6,6 @@ import { WorkspaceManager } from './workspaceManager'
 import { ITermDriver } from './itermDriver'
 import { SwarmController } from './swarmController'
 import { AgentProfileSchema, SettingsSchema } from './types'
-
 const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
@@ -58,9 +57,7 @@ function registerIpc(): void {
     return settingsStore.save(parsed)
   })
 
-  ipcMain.handle('swarm:launch', async (_e, profileNames: string[]) =>
-    controller.launch(profileNames)
-  )
+  ipcMain.handle('swarm:launch', async () => controller.launch())
   ipcMain.handle('swarm:stop', async () => controller.stop())
   ipcMain.handle('swarm:status', async () => controller.current())
 

@@ -23,7 +23,7 @@ export function App(): JSX.Element {
             className={page === 'agents' ? 'active' : ''}
             onClick={() => setPage('agents')}
           >
-            Agents
+            Templates
           </button>
           <button
             className={page === 'settings' ? 'active' : ''}

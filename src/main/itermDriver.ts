@@ -19,6 +19,7 @@ interface Pending {
 
 export interface GridResult {
   window_id: string
+  window_ids: string[]
   session_ids: string[]
   rows: number
   cols: number
@@ -29,8 +30,10 @@ export class ITermDriver {
   private pending = new Map<string, Pending>()
   private buf = ''
   private ready = false
-  private readyWaiters: Array<() => void> = []
+  private readyWaiters: Array<(err?: Error) => void> = []
   private pythonPath: string
+  private stderrBuf = ''
+  private exited = false
 
   constructor(pythonPath = 'python3') {
     this.pythonPath = pythonPath
@@ -39,6 +42,8 @@ export class ITermDriver {
   async start(): Promise<void> {
     if (this.proc) return
     const script = join(resourcesDir(), 'iterm-driver.py')
+    this.stderrBuf = ''
+    this.exited = false
     const proc = spawn(this.pythonPath, [script], {
       stdio: ['pipe', 'pipe', 'pipe']
     })
@@ -48,17 +53,32 @@ export class ITermDriver {
     proc.stdout.on('data', (chunk: string) => this.onStdout(chunk))
     proc.stderr.setEncoding('utf8')
     proc.stderr.on('data', (chunk: string) => {
+      this.stderrBuf += chunk
+      if (this.stderrBuf.length > 8192) {
+        this.stderrBuf = this.stderrBuf.slice(-8192)
+      }
       console.error('[iterm-driver]', chunk.trim())
     })
     proc.on('exit', (code, signal) => {
       console.error(`[iterm-driver] exited code=${code} signal=${signal}`)
       this.proc = null
-      this.ready = false
+      this.exited = true
+      const stderrTail = this.stderrBuf.trim()
+      const reason = stderrTail
+        ? `iterm-driver exited (code=${code}): ${stderrTail}`
+        : `iterm-driver exited (code=${code}, signal=${signal})`
+      // Fail any in-flight calls.
       for (const p of this.pending.values()) {
         clearTimeout(p.timer)
-        p.reject(new Error('iterm-driver exited'))
+        p.reject(new Error(reason))
       }
       this.pending.clear()
+      // Fail anyone still waiting for ready.
+      if (!this.ready) {
+        for (const w of this.readyWaiters) w(new Error(reason))
+        this.readyWaiters = []
+      }
+      this.ready = false
     })
 
     await this.waitReady(15_000)
@@ -74,17 +94,24 @@ export class ITermDriver {
 
   private waitReady(timeoutMs: number): Promise<void> {
     if (this.ready) return Promise.resolve()
+    if (this.exited) {
+      const tail = this.stderrBuf.trim()
+      return Promise.reject(
+        new Error(tail ? `iterm-driver exited: ${tail}` : 'iterm-driver exited before ready')
+      )
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(
-          new Error(
-            'iterm-driver did not become ready in time. Check that iTerm2 is running and the Python API is enabled.'
-          )
-        )
+        const tail = this.stderrBuf.trim()
+        const hint = tail
+          ? `\n\nDriver stderr:\n${tail}`
+          : '\n\nCheck iTerm2 → Settings → General → Magic → Enable Python API.'
+        reject(new Error(`iterm-driver did not become ready in 15s.${hint}`))
       }, timeoutMs)
-      this.readyWaiters.push(() => {
+      this.readyWaiters.push((err) => {
         clearTimeout(timer)
-        resolve()
+        if (err) reject(err)
+        else resolve()
       })
     })
   }
@@ -115,7 +142,12 @@ export class ITermDriver {
       this.pending.delete(msg.id)
       clearTimeout(pending.timer)
       if (msg.ok) pending.resolve(msg.result)
-      else pending.reject(new Error(msg.error || 'iterm-driver error'))
+      else {
+        const baseMsg = msg.error && msg.error.trim() ? msg.error : 'iterm-driver error'
+        if (msg.trace) console.error('[iterm-driver] traceback:\n' + msg.trace)
+        const full = msg.trace ? `${baseMsg}\n${msg.trace}` : baseMsg
+        pending.reject(new Error(full))
+      }
     }
   }
 
@@ -147,11 +179,23 @@ export class ITermDriver {
     return this.call('create_grid', { count }, 60_000)
   }
 
+  createWindows(count: number): Promise<GridResult> {
+    return this.call('create_windows', { count }, 60_000)
+  }
+
+  createTabs(count: number): Promise<GridResult> {
+    return this.call('create_tabs', { count }, 60_000)
+  }
+
   sendText(sessionId: string, text: string): Promise<{ sent: number }> {
     return this.call('send_text', { session_id: sessionId, text })
   }
 
   closeWindow(windowId: string): Promise<{ closed: boolean }> {
     return this.call('close_window', { window_id: windowId })
+  }
+
+  closeWindows(windowIds: string[]): Promise<{ closed: number }> {
+    return this.call('close_windows', { window_ids: windowIds })
   }
 }

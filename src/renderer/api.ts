@@ -1,4 +1,4 @@
-export interface AgentProfile {
+export interface ClientTemplate {
   name: string
   displayName: string
   command: string
@@ -8,12 +8,22 @@ export interface AgentProfile {
   initialPrompt: string
   readyDelayMs: number
 }
+export type AgentProfile = ClientTemplate
+
+export interface SwarmConfig {
+  clientTemplate: string
+  instanceCount: number
+  namePrefix: string
+  windowMode: 'grid' | 'windows' | 'tabs'
+  roles: string[]
+}
 
 export interface Settings {
   workspaceRoot: string
   terminal: 'iterm2'
   pythonPath: string
   protocolTemplate: string
+  swarm: SwarmConfig
   general: {
     autoStart: boolean
     fontSize: number
@@ -25,14 +35,15 @@ export interface RunSummary {
   startedAt: string
   workspaceDir: string
   windowId: string | null
+  windowIds: string[]
   agents: Array<{ name: string; sessionId: string }>
 }
 
 interface CcswarmApi {
   profiles: {
-    list(): Promise<AgentProfile[]>
-    get(name: string): Promise<AgentProfile | null>
-    save(profile: AgentProfile): Promise<AgentProfile>
+    list(): Promise<ClientTemplate[]>
+    get(name: string): Promise<ClientTemplate | null>
+    save(profile: ClientTemplate): Promise<ClientTemplate>
     delete(name: string): Promise<void>
   }
   settings: {
@@ -40,7 +51,7 @@ interface CcswarmApi {
     save(settings: Settings): Promise<Settings>
   }
   swarm: {
-    launch(profileNames: string[]): Promise<RunSummary>
+    launch(): Promise<RunSummary>
     stop(): Promise<void>
     status(): Promise<RunSummary | null>
   }
